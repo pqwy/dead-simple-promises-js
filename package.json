@@ -1,0 +1,28 @@
+{
+  "name": "simply-promise",
+  "version": "0.0.1",
+  "description": "promises with very simple semantics and high performance",
+  "main": "lib/promise.js",
+  "scripts": {
+    "install": "slake build",
+    "test": "slake test",
+    "bench": "slake bench"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/pqwy/shapelyjs.git"
+  },
+  "keywords": [
+    "promise",
+    "promises",
+    "deferred",
+    "future",
+    "async"
+  ],
+  "author": "pqwy <unitedbiscuits@gmail.com>",
+  "licence": "MIT",
+  "devDependencies": {
+    "LiveScript": "1.1.1",
+    "mocha": "~1.9.0"
+  }
+}
