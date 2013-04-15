@@ -1,5 +1,5 @@
 require! promise: '../lib/promise'
-require! [\assert, \fs]
+require! \fs
 
 fsp = promise.owrap fs
         ..touch = promise.fwrap (file, cb) ->
@@ -7,18 +7,24 @@ fsp = promise.owrap fs
 
 eet = global.it
 
+exn = (e) ->
+  case e instanceof Error => e
+  case _ => new Error e
+
 
 describe \promise, ->
 
   describe \events, ->
 
-    eet 'should succeed in failing 1', (done) ->
+    eet 'should succeed in failing', (done) ->
       p = promise!
-      p.on-error !-> done!
+      p.on-error     !-> done!
+      p.on-completed !-> done exn \nope
       process.next-tick -> ( p.reject \because ; p.complete \yup )
 
     eet 'should not fail in succeeding pt. 1', (done) ->
       p = promise!
+      p.on-error     !-> done exn \nope
       p.on-completed !-> done!
       process.next-tick -> ( p.complete \yup ; p.reject \because )
 
@@ -28,7 +34,7 @@ describe \promise, ->
       p.on-completed !(x) ->
         process.next-tick ->
           case x is 19 => done!
-          case _       => done \nope
+          case _       => done exn \nope
 
   describe \composition, ->
 
@@ -37,20 +43,20 @@ describe \promise, ->
         .then (+ "bar")
         .then ->
           case it is "foobar" => done!
-          case _              => done it
+          case _              => done exn it
 
     eet 'should respect then as >>=', (done) ->
       promise "foo"
         .then -> promise it + "bar"
         .then ->
           case it is "foobar" => done!
-          case _              => done it
+          case _              => done exn it
 
     eet 'should chain failure, pt. 1', (done) ->
       p  = promise!
       p2 = p.then -> "ok"
       p2.on-error     !-> done!
-      p2.on-completed !-> done "promise completed"
+      p2.on-completed !-> done exn "promise completed"
       p.reject \bzz
 
     eet 'should chain failure, pt. 2', (done) ->
@@ -60,33 +66,33 @@ describe \promise, ->
             process.next-tick -> p2.reject \nope
             p2
       p.on-error     !-> done!
-      p.on-completed !-> done "promise completed"
+      p.on-completed !-> done exn "promise completed"
 
-    eet 'should #seq', (done) ->
-      promise "foo" .seq do
+    eet 'should #chain', (done) ->
+      promise "foo" .chain do
         * (+ "bar")
         * (+ "baz")
       .then (x) ->
         case x is "foobarbaz" => done!
-        case _                => done x
+        case _                => done exn x
       .on-error done
 
-    eet 'should #seq failure', (done) ->
-      promise "foo" .seq do
+    eet 'should #chain failure', (done) ->
+      promise "foo" .chain do
         * (+ "bar")
         * -> p = promise! ; (process.next-tick -> p.reject \nope) ; p
         * (+ "baz")
-      .then (x) -> done x
+      .then (x) -> done exn x
       .on-error (err) ->
         case err is \nope => done!
-        case _            => done err
+        case _            => done exn err
 
   describe 'instance goodies', ->
 
     eet 'can accept callbacks and win by winning', (done) ->
       p = promise!
       p.cb (err, res) ->
-        case err? => done err
+        case err? => done exn err
         case res? => done!
       p.complete \win
 
@@ -94,55 +100,70 @@ describe \promise, ->
       p = promise!
       p.cb (err, res) ->
         case err? => done!
-        case res? => done res
+        case res? => done exn res
       p.reject \win
 
     eet 'can timeout, pt.1', (done) ->
       p = promise!
       p.timeout 5
         .then     -> done!
-        .on-error -> done it
+        .on-error -> done exn it
       set-timeout (-> p.complete \bzzz), 1
 
     eet 'can timeout, pt.2', (done) ->
       p = promise!
       p.timeout 1
-        .then     -> done it
+        .then     -> done exn it
         .on-error ->
           case it is \timeout => done!
-          case _              => done it
+          case _              => done exn it
       set-timeout (-> p.complete \bzzz), 5
 
   describe 'module goodies', ->
 
-    temp = "/tmp/promise-test-temp-#{process.pid}-#{(new Date).get-time!}"
+    temp = "/tmp/promise-test-temp-#{process.pid}-#{new Date!get-time!}"
+
+    rm-tree = (path) ->
+      stat <- fsp.lstat path .then
+      if stat.is-directory!
+          files <- fsp.readdir path .then
+          <- promise.seq_ [ rm-tree "#{path}/#{file}" for file in files ]
+                    .then
+          fsp.rmdir path
+      else fsp.unlink path
+
 
     before (done) ->
       fs.mkdir temp, (err, res) ->
-        case err? => done err
+        case err? => done exn err
         case _    => done!
 
     after (done) ->
-      fsp.readdir temp
-        .then (files) -> promise.pseq [ fsp.unlink "#{temp}/#{f}" for f in files ]
-        .then     -> fsp.rmdir temp
+      rm-tree temp
         .then     -> done!
-        .on-error -> done new Error it
+        .on-error -> done exn it
+
 
     eet 'knows how to chill', (done) ->
       t0 = new Date
       promise.after 5 .then (t1) ->
         case t1 - t0 >= 5 => done!
-        case _            => done [t0, t1]
+        case _            => done exn "#t0 - #t1"
 
-    eet 'does stuff in parallel', (done) ->
-      fsp.readdir temp .then (fs1) ->
-        promise.pseq [ fsp.touch "#{temp}/x-#{n}" for n from 1 to 10 ] .then ->
-          fsp.readdir temp .then (fs2) ->
-            promise.pseq [ fsp.unlink "#{temp}/x-#{n}" for n from 1 to 10 ] .then ->
-              fsp.readdir temp .then (fs3) ->
-                [ l1, l2, l3 ] = [ fs1.length, fs2.length, fs3.length ]
-                if l1 is l3 and l2 is l1 + 10 then done!
-                else done [ fs1, fs2, fs3 ]
-      .on-error -> done new Error it
+    eet 'runs around', (done) ->
 
+      build-tree = (path, obj) ->
+        fsp.mkdir path .then ->
+          for k, e of obj
+            if typeof! e is \Object => build-tree "#path/#k", e
+            else fsp.write-file "#path/#k", ( e?.to-string?! ? '' )
+
+      rand-struct = (p-dir = 1) ->
+        if Math.random! < p-dir
+          {[ k, rand-struct (0.8 * p-dir) ] for k in <[eenie meenie moe]>}
+        else \desu
+
+      build-tree "#{temp}/random", rand-struct!
+        .then     -> rm-tree "#{temp}/random"
+        .then     -> done!
+        .on-error -> done exn it
