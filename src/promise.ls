@@ -1,24 +1,23 @@
 
-# A Promise is a structure in one of three statest: new, fulfilled and broken.
+# A Promise represents an on-going background computation.
 #
-# A new promise is moved into fulfilled (resp. broken) state by invoking
-# `complete` (resp `reject`). Once in one of these two states, that state is
-# unchangeable.
+# It's a state-machine that starts in its "waiting" state and can move from
+# there into being "fulfilled" or "broken". Once fulfilled or broken, it stays
+# that way.
 #
-# Event listeners can be added to a promise to be notified of it being
-# fullfilled or broken; each listener is invoked zero times, if it's waiting
-# for the state the promise will not reach, or once, if it's waiting for the
-# state the promise entered. The listener is invoked regardless of whether the
-# state-change occurres before or after registration. On top of that, there is
-# no guarantee whether the listener will be invoked synchronously or
-# asynchronously with registration.
+# Callbacks can be notified of the state transition. A late-registered callback
+# will still be notified if the state it is listening to is already achieved.
+#
+# There is no guarantee of the (a-)synchronicity of callback invocation wrt
+# registration.
 #
 class Promise
 
   (init) ->
     @complete init if init?
 
-  # Receive the value with which this promise if fulfilled (resp. broken).
+  # Hook a listener. It is invoked only once, if the state targeted is
+  # eventually echieved, or zero times otherwise.
   #
   on-completed: (cb) -> @_on-event \succ, (@_onsucc or= []), cb
   on-error    : (cb) -> @_on-event \err , (@_onerr  or= []), cb
@@ -29,8 +28,7 @@ class Promise
       case tag  => cb @_x
     @
 
-  # Set the promise to the fulfilled (resp.  broken) state if it wasn't in one
-  # of those already.
+  # Make the transition, if the promise is new.
   #
   complete: !(value) -> @_finalize \succ, @_onsucc, value
   reject  : !(error) -> @_finalize \err , @_onerr , error
@@ -42,16 +40,24 @@ class Promise
       for cb in (queue || []) then cb value
       @_onsucc = @_onerr = null
 
-  # Combine a function of signatures `(a) -> b` or `(a) -> Promise b` with a
+  # Combine a function of signature `(a) -> b` or `(a) -> Promise b` with a
   # promise of type `Promise a`, forming a new promise of type `Promise b`.
   #
-  # The new promise is fulfilled with the result of the function if the function
-  # does not return a promise and the original promise was fulfilled, or it will
-  # be fulfilled when the second promise is fulfilled if the function returns a
-  # promise. It will be broken if any of the promises along the way are broken.
+  # The new promise is fulfilled with the result of the function applied to the
+  # value of the promise if the function does not return a promise, or with the
+  # result of the returned promise.
+  #
+  # It is broken if either the first or second promise is, or the function
+  # throws.
+  #
+  # ( promise a .then f) == (f a)
+  # ( p.then promise ) == p
+  # ( p.then f1 .then f2 ) == ( p.then -> f1!then f2 )
+  #   ( as long as f1 does not depend on p's result )
+  # ( p.then (a) -> promise(f a) ) == ( p.then f )
   # 
-  # In short, this is a combination of Haskell's `fmap` and `>>=`, or Scala's
-  # `map` and `flatMap`.
+  # This is a conflation of Haskell's `fmap` and `>>=` or Scala's `map` and
+  # `flatMatmap`, specialized for promises.
   #
   then: (fn) ->
     p = new Promise
@@ -66,15 +72,19 @@ class Promise
     p
 
   # Combine a promise with a chain of further functions.
-  # p.seq[f1, f2] == p.then(p1).then(p2) == p.then(p1.then(p2))
+  # ( p.chain [f1, f2] ) == ( p.then f1 .then f2 ) == ( p.then -> f1!then f2 )
   #
-  seq: (...fns) -> fns.reduce ((p, fn) -> p.then fn), @
+  chain: (...fns) -> fns.reduce ((p, fn) -> p.then fn), @
 
-  # Add a node-style callback to wait for any of the possible events.
+  # Add a node-style callback -- wait for either event.
+  #
   cb: (cb) ->
     @on-completed !(result) -> cb null, result
     @on-error     !(err)    -> cb err
 
+  # Make a promise that fails after the given number of milliseconds, or
+  # completes with the result of the original promise.
+  #
   timeout: (ms) ->
     @then ((x) -> x) |> tap !(p) ->
       set-timeout (-> p.reject \timeout), ms
@@ -100,10 +110,11 @@ module.exports = promise = (-> new Promise it)
     case x instanceof Promise => x
     case _                    => promise x
 
-  # Convert an array or promises into a promise of array, that is fulfilled as
-  # soon as all the promises are, or broken as soon as the first promise is.
+  # Convert an array or promises into a promise of array.
+  # 
+  # ( seq [promise(a), promise(b), ...] ) == ( promise [a, b, ...] )
   #
-  ..pseq = (parr) ->
+  ..seq = (parr) ->
     case not parr[0] => promise []
     case _           =>
       [ arr, res, n ] = [ [], promise!, parr.length ]
@@ -113,6 +124,19 @@ module.exports = promise = (-> new Promise it)
             arr[slot] = x
             res.complete arr if --n is 0
           ..on-error (err) -> res.reject err
+      res
+
+  # Wait for an array or promises to complete.
+  #
+  # ( seq arr .then -> f! ) == ( seq_ arr .then f )
+  #
+  ..seq_ = (parr) ->
+    case not parr[0] => promise \seq
+    case _           =>
+      [ res, n ] = [ promise!, parr.length ]
+      for p in parr then p
+        ..on-completed -> res.complete \seq if --n is 0
+        ..on-error     -> res.reject it
       res
 
   # Take an object and a predicate and return another object with all the
@@ -131,6 +155,10 @@ module.exports = promise = (-> new Promise it)
       for k, v of o when typeof! v is \Function and cond k
         it[k] = promise.fwrap v
 
+  # Construct a promise that will complete after the given number of
+  # milliseconds.
+  #
   ..after = (ms) ->
     promise! |> tap !(p) ->
       set-timeout (-> p.complete (new Date)), ms
+
