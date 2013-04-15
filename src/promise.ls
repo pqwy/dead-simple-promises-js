@@ -19,8 +19,8 @@ class Promise
   # Hook a listener. It is invoked only once, if the state targeted is
   # eventually echieved, or zero times otherwise.
   #
-  on-completed: (cb) -> @_on-event \succ, (@_onsucc or= []), cb
-  on-error    : (cb) -> @_on-event \err , (@_onerr  or= []), cb
+  on-completed: (cb) -> @_on-event \succ, (@[]_onsucc), cb
+  on-error    : (cb) -> @_on-event \err , (@[]_onerr ), cb
 
   _on-event: (tag, queue, cb) ->
     switch @_done
@@ -37,7 +37,7 @@ class Promise
     unless @_done
       @_done = tag
       @_x    = value
-      for cb in (queue || []) then cb value
+      for cb in queue or [] then cb value
       @_onsucc = @_onerr = null
 
   # Combine a function of signature `(a) -> b` or `(a) -> Promise b` with a
@@ -160,5 +160,5 @@ module.exports = promise = (-> new Promise it)
   #
   ..after = (ms) ->
     promise! |> tap !(p) ->
-      set-timeout (-> p.complete (new Date)), ms
+      set-timeout (-> p.complete new Date), ms
 
