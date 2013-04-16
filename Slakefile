@@ -8,16 +8,14 @@ run = (cmd, args, next) ->
 
 
 build = (next) ->
-  run 'lsc', <[--compile --output lib/ src/]>, next
+  run (bin \lsc), <[--compile --output lib/ src/]>, next
 
 test = (next) ->
-  run "#{bin \mocha}", <[-c --compilers ls:LiveScript]>, next
+  run (bin \mocha), <[-c --compilers ls:LiveScript]>, next
 
-bench = (next) ->
+bench = ->
   <- run 'lsc', <[--compile --output bench/ bench/]>
-  <- run "#{bin \matcha}", <[bench/bench.js]>
-  next?!
-
+  run (bin \matcha), <[bench/bench.js]>
 
 task \build, 'rebuild sources',    build
 task \test , 'tests'          , -> build test

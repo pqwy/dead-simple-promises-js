@@ -4,7 +4,7 @@
   "description": "promises with very simple semantics and high performance",
   "main": "lib/promise.js",
   "scripts": {
-    "install": "slake build",
+    "prepublish": "slake build",
     "test": "slake test",
     "benchmark": "slake bench"
   },
