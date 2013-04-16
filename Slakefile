@@ -21,5 +21,5 @@ bench = (next) ->
 
 task \build, 'rebuild sources',    build
 task \test , 'tests'          , -> build test
-task \bench, 'benchmark'      ,    bench
+task \bench, 'benchmark'      , -> build bench
 

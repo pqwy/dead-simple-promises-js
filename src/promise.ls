@@ -11,6 +11,7 @@
 # There is no guarantee of the (a-)synchronicity of callback invocation wrt
 # registration.
 #
+#
 class Promise
 
   (init) ->
@@ -50,10 +51,16 @@ class Promise
   # It is broken if either the first or second promise is, or the function
   # throws.
   #
-  # ( promise a .then f) == (f a)
+  # ( promise a .then f ) == | (f a)         , if f returns a promise
+  #                          | promise (f a) , otherwise
+  #   - in both cases any exceptions thrown by f are converted into promise
+  #     failure
+  #
   # ( p.then promise ) == p
+  #
   # ( p.then f1 .then f2 ) == ( p.then -> f1!then f2 )
-  #   ( as long as f1 does not depend on p's result )
+  #   - as long as f1 does not depend on p's result
+  #
   # ( p.then (a) -> promise(f a) ) == ( p.then f )
   # 
   # This is a conflation of Haskell's `fmap` and `>>=` or Scala's `map` and
@@ -72,13 +79,14 @@ class Promise
     p
 
   # Combine a promise with a chain of further functions.
+  #
   # ( p.chain [f1, f2] ) == ( p.then f1 .then f2 ) == ( p.then -> f1!then f2 )
   #
   chain: (...fns) -> fns.reduce ((p, fn) -> p.then fn), @
 
   # Add a node-style callback -- wait for either event.
   #
-  cb: (cb) ->
+  cb: !(cb) ->
     @on-completed !(result) -> cb null, result
     @on-error     !(err)    -> cb err
 
@@ -150,24 +158,32 @@ module.exports = promise = (-> new Promise it)
         case \RegExp   => -> it.match pred
         case _         => throw new Error "owrap: bad predicate: #pred"
 
-    r = Object.create o
-    for k, v of o when typeof! v is \Function and cond k
-      r[k] = promise.fwrap v
-    r
+    ( Object.create o ) <<<
+      {[k, promise.fwrap v] for k, v of o
+          when typeof! v is \Function and cond k}
 
-  # Construct a promise that will complete after the given number of
-  # milliseconds.
-  #
-  ..after = (ms, x) ->
+
+  ..complete-with = (fun) ->
     p = promise!
-    set-timeout (-> p.complete new Date, x), ms
+    fun -> p.complete it
     p
 
+  # Promise that completes after `ms` milliseconds.
+  #
+  ..after = (ms) ->
+    p = promise!
+    set-timeout (-> p.complete new Date), ms
+    p
+
+  # Promise that completes in node's `process.next-tick`.
+  #
   ..next-tick = (x) ->
     p = promise!
     process.next-tick -> p.complete x
     p
 
+  # Promise that completes in node's setImmediate.
+  #
   ..set-immediate = (x) ->
     p = promise!
     set-immediate -> p.complete x
