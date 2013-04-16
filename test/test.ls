@@ -1,5 +1,5 @@
-require! promise: '../lib/promise'
-require! \fs
+require! promise: '../lib/promise', p: \prelude-ls
+require! [ \fs, \assert ]
 
 fsp = promise.owrap fs
         ..touch = promise.fwrap (file, cb) ->
@@ -121,17 +121,24 @@ describe \promise, ->
 
   describe 'module goodies', ->
 
+    fs-tree =
+      rm-tree : (path) ->
+        stat <- fsp.lstat path .then
+        if stat.is-directory!
+            files <- fsp.readdir path .then
+            <- promise.seq_ [ fs-tree.rm-tree "#{path}/#{file}" for file in files ]
+                      .then
+            fsp.rmdir path
+        else fsp.unlink path
+
+      build-tree : (path, obj) ->
+        fsp.mkdir path .then ->
+          for k, e of obj
+            if typeof! e is \Object => fs-tree.build-tree "#path/#k", e
+            else fsp.write-file "#path/#k", ( e?.to-string?! ? '' )
+
+
     temp = "/tmp/promise-test-temp-#{process.pid}-#{new Date!get-time!}"
-
-    rm-tree = (path) ->
-      stat <- fsp.lstat path .then
-      if stat.is-directory!
-          files <- fsp.readdir path .then
-          <- promise.seq_ [ rm-tree "#{path}/#{file}" for file in files ]
-                    .then
-          fsp.rmdir path
-      else fsp.unlink path
-
 
     before (done) ->
       fs.mkdir temp, (err, res) ->
@@ -139,7 +146,7 @@ describe \promise, ->
         case _    => done!
 
     after (done) ->
-      rm-tree temp
+      fs-tree.rm-tree temp
         .then     -> done!
         .on-error -> done exn it
 
@@ -150,20 +157,25 @@ describe \promise, ->
         case t1 - t0 >= 5 => done!
         case _            => done exn "#t0 - #t1"
 
-    eet 'runs around', (done) ->
+    eet 'delays action in more than one way', (done) ->
+      [1 to 10] |> p.map ->
+        promise.seq [
+          promise.set-immediate \si
+          promise.next-tick \nt
+          promise.after 0 .then -> \after
+        ] .then -> assert.deep-equal it, [\si, \nt, \after]
+      |> promise.seq_ |> (.then done)
 
-      build-tree = (path, obj) ->
-        fsp.mkdir path .then ->
-          for k, e of obj
-            if typeof! e is \Object => build-tree "#path/#k", e
-            else fsp.write-file "#path/#k", ( e?.to-string?! ? '' )
+
+    eet 'runs around', (done) ->
 
       rand-struct = (p-dir = 1) ->
         if Math.random! < p-dir
           {[ k, rand-struct (0.8 * p-dir) ] for k in <[eenie meenie moe]>}
         else \desu
 
-      build-tree "#{temp}/random", rand-struct!
-        .then     -> rm-tree "#{temp}/random"
+      fs-tree.build-tree "#{temp}/random", rand-struct!
+        .then     -> fs-tree.rm-tree "#{temp}/random"
         .then     -> done!
         .on-error -> done exn it
+

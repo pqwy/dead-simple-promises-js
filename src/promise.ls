@@ -15,7 +15,7 @@
 class Promise
 
   (init) ->
-    @complete init if init?
+    @complete init if init isnt void
 
   # Hook a listener. It is invoked only once, if the state targeted is
   # eventually echieved, or zero times otherwise.
@@ -135,14 +135,14 @@ module.exports = promise = (-> new Promise it)
 
   # Wait for an array or promises to complete.
   #
-  # ( seq arr .then -> f! ) == ( seq_ arr .then f )
+  # ( seq arr .then -> f null ) == ( seq_ arr .then f )
   #
   ..seq_ = (parr) ->
-    case not parr[0] => promise \seq
+    case not parr[0] => promise null
     case _           =>
       [ res, n ] = [ promise!, parr.length ]
       for p in parr then p
-        ..on-completed -> res.complete \seq if --n is 0
+        ..on-completed -> res.complete null if --n is 0
         ..on-error     -> res.reject it
       res
 
