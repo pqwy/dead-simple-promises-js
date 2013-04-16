@@ -6,7 +6,7 @@
   "scripts": {
     "install": "slake build",
     "test": "slake test",
-    "bench": "slake bench"
+    "benchmark": "slake bench"
   },
   "repository": {
     "type": "git",
@@ -23,6 +23,7 @@
   "licence": "MIT",
   "devDependencies": {
     "LiveScript": "1.1.1",
-    "mocha": "~1.9.0"
+    "mocha": "~1.9.0",
+    "matcha": "~0.2.0"
   }
 }
