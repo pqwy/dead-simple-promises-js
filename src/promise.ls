@@ -86,10 +86,9 @@ class Promise
   # completes with the result of the original promise.
   #
   timeout: (ms) ->
-    @then ((x) -> x) |> tap !(p) ->
-      set-timeout (-> p.reject \timeout), ms
-
-tap = (fn, x) --> fn.call @, x ; x
+    p = @then ((x) -> x)
+    set-timeout (-> p.reject \timeout), ms
+    p
 
 module.exports = promise = (-> new Promise it)
 
@@ -151,14 +150,26 @@ module.exports = promise = (-> new Promise it)
         case \RegExp   => -> it.match pred
         case _         => throw new Error "owrap: bad predicate: #pred"
 
-    Object.create o |> tap !->
-      for k, v of o when typeof! v is \Function and cond k
-        it[k] = promise.fwrap v
+    r = Object.create o
+    for k, v of o when typeof! v is \Function and cond k
+      r[k] = promise.fwrap v
+    r
 
   # Construct a promise that will complete after the given number of
   # milliseconds.
   #
-  ..after = (ms) ->
-    promise! |> tap !(p) ->
-      set-timeout (-> p.complete new Date), ms
+  ..after = (ms, x) ->
+    p = promise!
+    set-timeout (-> p.complete new Date, x), ms
+    p
+
+  ..next-tick = (x) ->
+    p = promise!
+    process.next-tick -> p.complete x
+    p
+
+  ..set-immediate = (x) ->
+    p = promise!
+    set-immediate -> p.complete x
+    p
 
