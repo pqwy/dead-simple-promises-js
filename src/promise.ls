@@ -78,6 +78,8 @@ class Promise
     @on-error !(err) -> p.reject err
     p
 
+  ## various goodies ##
+
   # Combine a promise with a chain of further functions.
   #
   # ( p.chain [f1, f2] ) == ( p.then f1 .then f2 ) == ( p.then -> f1!then f2 )
@@ -90,6 +92,17 @@ class Promise
     @on-completed !(result) -> cb null, result
     @on-error     !(err)    -> cb err
 
+  # Create an object whose `then` is Promises/A+ compatible.
+  # (Almost. Giving defined-but-non-function callbacks will error out.)
+  #
+  to-aplus: ->
+    then: (succ = id, fail = id) ~>
+      set-immediate ~> @then succ .on-error fail
+
+  # Strictly asynchronous `then`, à la A+.
+  #
+  then-later: (fn) -> set-immediate ~> @then fn
+
   # Make a promise that fails after the given number of milliseconds, or
   # completes with the result of the original promise.
   #
@@ -99,6 +112,8 @@ class Promise
     p
 
 module.exports = promise = (-> new Promise it)
+
+  ..is = -> it instanceof Promise
 
   # Convert a function that takes a node-style callback as the last argument
   # into a function with one less argument that returns a promise.
@@ -189,3 +204,12 @@ module.exports = promise = (-> new Promise it)
     set-immediate -> p.complete x
     p
 
+  # List a Promise/A+-style promise into our flavour.
+  #
+  ..from-aplus = (ap) ->
+    p = promise!
+    ap.then (-> p.complete it), (-> p.reject it)
+    p
+
+
+id = (x) -> x

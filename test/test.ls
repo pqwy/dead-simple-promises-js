@@ -14,6 +14,7 @@ exn = (e) ->
 
 describe \promise, ->
 
+
   describe \events, ->
 
     eet 'should succeed in failing', (done) ->
@@ -22,19 +23,21 @@ describe \promise, ->
       p.on-completed !-> done exn \nope
       process.next-tick -> ( p.reject \because ; p.complete \yup )
 
-    eet 'should not fail in succeeding pt. 1', (done) ->
+    eet 'should not fail in succeeding (late complete)', (done) ->
       p = promise!
       p.on-error     !-> done exn \nope
       p.on-completed !-> done!
       process.next-tick -> ( p.complete \yup ; p.reject \because )
 
-    eet 'should not fail in succeeding pt. 2', (done) ->
+    eet 'should not fail in succeeding (early complete)', (done) ->
       p = promise 19
-      process.next-tick -> ( p.reject ; p.complete \because )
+      process.next-tick -> ( p.reject \because ; p.complete \yup )
       p.on-completed !(x) ->
         process.next-tick ->
           case x is 19 => done!
           case _       => done exn \nope
+      .on-error !-> done exn \nope
+
 
   describe \composition, ->
 
@@ -52,14 +55,14 @@ describe \promise, ->
           case it is "foobar" => done!
           case _              => done exn it
 
-    eet 'should chain failure, pt. 1', (done) ->
+    eet 'should chain failure ( left )', (done) ->
       p  = promise!
       p2 = p.then -> "ok"
       p2.on-error     !-> done!
       p2.on-completed !-> done exn "promise completed"
       p.reject \bzz
 
-    eet 'should chain failure, pt. 2', (done) ->
+    eet 'should chain failure ( right )', (done) ->
       p = promise "foo"
           .then ->
             p2 = promise!
@@ -87,37 +90,62 @@ describe \promise, ->
         case err is \nope => done!
         case _            => done exn err
 
-  describe 'instance goodies', ->
 
-    eet 'can accept callbacks and win by winning', (done) ->
+  describe 'instance goodies:', ->
+
+    eet 'can accept callbacks ( + )', (done) ->
       p = promise!
       p.cb (err, res) ->
         case err? => done exn err
         case res? => done!
       p.complete \win
 
-    eet 'can accept callbacks and win by failing', (done) ->
+    eet 'can accept callbacks ( - )', (done) ->
       p = promise!
       p.cb (err, res) ->
         case err? => done!
         case res? => done exn res
       p.reject \win
 
-    eet 'can timeout, pt.1', (done) ->
+    eet 'can timeout ( + )', (done) ->
       p = promise!
       p.timeout 5
-        .then     -> done!
-        .on-error -> done exn it
+      .then     -> done!
+      .on-error -> done exn it
       set-timeout (-> p.complete \bzzz), 1
 
-    eet 'can timeout, pt.2', (done) ->
+    eet 'can timeout ( - )', (done) ->
       p = promise!
       p.timeout 1
-        .then     -> done exn it
-        .on-error ->
-          case it is \timeout => done!
-          case _              => done exn it
+      .then     -> done exn it
+      .on-error ->
+        case it is \timeout => done!
+        case _              => done exn it
       set-timeout (-> p.complete \bzzz), 5
+
+    eet 'can be a little slow, if need be', (done) ->
+      tick = null
+      promise \all-the-things .then-later ->
+        case not tick => done exn "Too fast."
+        case _        => done!
+      tick = \tock
+
+    eet 'can act like its silly little sister ( + )', (done) ->
+      tick = null
+      promise \all-the-things .to-aplus!.then ->
+        case not tick => done exn "Too fast."
+        case _        => done!
+      tick = \tock
+
+    eet 'can act like its silly little sister ( - )', (done) ->
+      tick = null
+      p = promise!
+      p.to-aplus!then null, ->
+        case not tick => done exn "Too fast."
+        case _        => done!
+      p.reject \because
+      tick = \tock
+
 
   describe 'module goodies', ->
 
@@ -147,8 +175,8 @@ describe \promise, ->
 
     after (done) ->
       fs-tree.rm-tree temp
-        .then     -> done!
-        .on-error -> done exn it
+      .then     -> done!
+      .on-error -> done exn it
 
 
     eet 'knows how to chill', (done) ->
@@ -175,7 +203,7 @@ describe \promise, ->
         else \desu
 
       fs-tree.build-tree "#{temp}/random", rand-struct!
-        .then     -> fs-tree.rm-tree "#{temp}/random"
-        .then     -> done!
-        .on-error -> done exn it
+      .then     -> fs-tree.rm-tree "#{temp}/random"
+      .then     -> done!
+      .on-error -> done exn it
 
