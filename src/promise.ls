@@ -97,11 +97,11 @@ class Promise
   #
   to-aplus: ->
     then: (succ = id, fail = id) ~>
-      set-immediate ~> @then succ .on-error fail
+      next-tickle ~> @then succ .on-error fail
 
   # Strictly asynchronous `then`, à la A+.
   #
-  then-later: (fn) -> set-immediate ~> @then fn
+  then-later: (fn) -> next-tickle ~> @then fn
 
   # Make a promise that fails after the given number of milliseconds, or
   # completes with the result of the original promise.
@@ -213,3 +213,9 @@ module.exports = promise = (-> new Promise it)
 
 
 id = (x) -> x
+
+next-tickle = do ->
+  case set-immediate?      => set-immediate
+  case process?.next-tick? => process.next-tick
+  case _                   => (cb) -> set-timeout cb, 0
+
