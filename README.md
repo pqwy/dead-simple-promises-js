@@ -13,9 +13,17 @@ the speed hit, together with being relatively no-brainer to use.
 Currently, the hit is around 40% for pure in-process workloads and much lower
 with intermittent callouts. See `slake bench`.
 
+On the other hand, it is **not** compatible with
+[Promises/A+](http://promises-aplus.github.io/promises-spec/). Continuations are
+not invoked strictly after `.then` method returns, which means the burden of not
+smashing the stack is on the user. As a minor divergence, `.then` also handles
+only chaining of success: `onError` registers failure listeners, as this
+operation has imperative semantics.
+
 ## Documentation ##
 
-**TODO**, but the single source file is short and documented.
+**TODO**, but the single source file is short and documented. It also includes
+some laws the promises satisfy.
 
 ## Like so: ##
 
@@ -45,7 +53,7 @@ function fileSizes (path) {
 
 fileSizes (wherever)
   .then (function (tree) { console.log ('x', tree); })
-  .onError (function (err) { console.log ("error:", err); })
+  .onError (function (err) { console.error (err); })
 
 ```
 
@@ -62,5 +70,5 @@ file-sizes = (path) ->
   else promise {path, size}
 
 file-sizes wherever .then     (util.inspect >> console.log)
-                    .on-error (console.log 'error:', _)
+                    .on-error console.error
 ```
