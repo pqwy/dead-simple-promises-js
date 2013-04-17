@@ -1,7 +1,7 @@
 
 # Dead-Simple Promises, js #
 
-Yet _another_ future/promise variant for Javascript.
+Yet **another** future/promise variant for Javascript.
 
 ![PROMISE!](https://raw.github.com/pqwy/dead-simple-promises-js/memorabilia/brofist.jpg)
 
@@ -15,10 +15,11 @@ with intermittent callouts. See `slake bench`.
 
 On the other hand, it is **not** compatible with
 [Promises/A+](http://promises-aplus.github.io/promises-spec/). Continuations are
-not invoked strictly after `.then` method returns, which means the burden of not
-smashing the stack is on the user. As a minor divergence, `.then` also handles
-only chaining of success: `onError` registers failure listeners, as this
-operation has imperative semantics.
+not invoked strictly _after_ `.then` method returns (they could be invoked
+_during_ that call), which means the burden of not smashing the stack is on the
+user. As a minor divergence, `.then` also handles only chaining of success:
+`onError` registers failure listeners, as this operation has imperative
+semantics.
 
 ## Documentation ##
 
