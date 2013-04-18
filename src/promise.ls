@@ -1,9 +1,9 @@
 
 # A Promise represents an on-going background computation.
 #
-# It's a state-machine that starts in its "waiting" state and can move from
-# there into being "fulfilled" or "broken". Once fulfilled or broken, it stays
-# that way.
+# It's a state-machine that starts in its "pending" state and can move from
+# there into being "fulfilled" or "rejected". When fulfilled or rejected, it
+# stays that way.
 #
 # Callbacks can be notified of the state transition. A late-registered callback
 # will still be notified if the state it is listening to is already achieved.
@@ -40,6 +40,8 @@
 #
 class Promise
 
+  # A promise can be constructed as already fulfilled.
+  #
   (init) ->
     @complete init if init isnt void
 
@@ -55,7 +57,7 @@ class Promise
       case tag  => cb @_x
     @
 
-  # Make the transition, if the promise is new.
+  # Make the transition, if the promise is pending.
   #
   complete: !(value) -> @_finalize \succ, @_onsucc, value
   reject  : !(error) -> @_finalize \err , @_onerr , error
@@ -74,7 +76,7 @@ class Promise
   # value of the promise if the function does not return a promise, or with the
   # result of the returned promise.
   #
-  # It is broken if either the first or second promise is, or the function
+  # It is rejected if either the first or second promise is, or the function
   # throws.
   #
   # ( promise a .then f ) == | (f a)         , if f returns a promise
@@ -137,6 +139,8 @@ class Promise
     set-timeout (-> p.reject \timeout), ms
     p
 
+# Main export is a factory.
+#
 module.exports = promise = (-> new Promise it)
 
   ..is = -> it instanceof Promise
@@ -160,7 +164,7 @@ module.exports = promise = (-> new Promise it)
     case x instanceof Promise => x
     case _                    => promise x
 
-  # Convert an array or promises into a promise of array.
+  # Convert an array of promises into a promise of array.
   # 
   # ( seq [promise(a), promise(b), ...] ) == ( promise [a, b, ...] )
   #
@@ -176,7 +180,7 @@ module.exports = promise = (-> new Promise it)
           ..on-error (err) -> res.reject err
       res
 
-  # Wait for an array or promises to complete.
+  # Wait for an array of promises to complete.
   #
   # ( seq arr .then -> f null ) == ( seq_ arr .then f )
   #
@@ -231,7 +235,7 @@ module.exports = promise = (-> new Promise it)
     set-immediate -> p.complete x
     p
 
-  # List a Promise/A+-style promise into our flavour.
+  # Lift a Promise/A+-style promise into our flavour.
   #
   ..from-aplus = (ap) ->
     p = promise!
