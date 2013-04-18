@@ -71,8 +71,8 @@ describe \promise, ->
       p.on-error     !-> done!
       p.on-completed !-> done exn "promise completed"
 
-    eet 'should #chain', (done) ->
-      promise "foo" .chain do
+    eet 'should #thread', (done) ->
+      promise "foo" .thread do
         * (+ "bar")
         * (+ "baz")
       .then (x) ->
@@ -80,8 +80,8 @@ describe \promise, ->
         case _                => done exn x
       .on-error done
 
-    eet 'should #chain failure', (done) ->
-      promise "foo" .chain do
+    eet 'should #thread failure', (done) ->
+      promise "foo" .thread do
         * (+ "bar")
         * -> p = promise! ; (process.next-tick -> p.reject \nope) ; p
         * (+ "baz")
@@ -178,6 +178,12 @@ describe \promise, ->
       .then     -> done!
       .on-error -> done exn it
 
+    eet "lifts functions", (done) ->
+      promise.lift (+), 1, promise 2
+      .then ->
+        case it is 3 => done!
+        case _       => done exn "wrong result: #it"
+      .on-error -> done exn it
 
     eet 'knows how to chill', (done) ->
       t0 = new Date

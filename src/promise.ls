@@ -12,6 +12,32 @@
 # registration.
 #
 #
+# Design notes:
+#
+# * The promise is described with an object instead of a closure. This is a bit
+# ugly and certainly doesn't help information hiding, but has a large,
+# measurable impact on v8 because of it's (current) optimization bias against
+# closures.
+#
+# * `then` doesn't trampoline because doing so kills almost an order of
+# magnitude of speed, defeating the purpose of having a promise that can be used
+# for *everything*. This does neccessitate keeping track of stack-nesting on
+# usage, though.
+#
+# * `then` creates a promise. It is unclear if it is wise to allow capturing the
+# error reason into a function - if the error handler returns a promise, should
+# that promise be waited on? if so, is its success then the new _error_ of the
+# combined promise, or does it save the execution? Since the semantics is
+# unclear, installing the error handler does not create a new promise - the
+# handler is simply called. And because of this, `then` does not accept one.
+#
+# * The promise is its own deferrable. I see no real point in keeping them
+# separate.
+#
+# * Some functions are repetitive since abstracting away the common code has a
+# noticable performance impact.
+#
+#
 class Promise
 
   (init) ->
@@ -20,8 +46,8 @@ class Promise
   # Hook a listener. It is invoked only once, if the state targeted is
   # eventually echieved, or zero times otherwise.
   #
-  on-completed: (cb) -> @_on-event \succ, (@[]_onsucc), cb
-  on-error    : (cb) -> @_on-event \err , (@[]_onerr ), cb
+  on-completed: (cb) -> @_on-event \succ, @[]_onsucc, cb
+  on-error    : (cb) -> @_on-event \err , @[]_onerr , cb
 
   _on-event: (tag, queue, cb) ->
     switch @_done
@@ -82,9 +108,9 @@ class Promise
 
   # Combine a promise with a chain of further functions.
   #
-  # ( p.chain [f1, f2] ) == ( p.then f1 .then f2 ) == ( p.then -> f1!then f2 )
+  # ( p.thread [f1, f2] ) == ( p.then f1 .then f2 ) == ( p.then -> f1!then f2 )
   #
-  chain: (...fns) -> fns.reduce ((p, fn) -> p.then fn), @
+  thread: (...fns) -> fns.reduce ((p, fn) -> p.then fn), @
 
   # Add a node-style callback -- wait for either event.
   #
@@ -128,6 +154,8 @@ module.exports = promise = (-> new Promise it)
     catch e => p.reject e
     p
 
+  # Transform a value into a promise, it it's not a promise already.
+  #
   ..wrap = (x) ->
     case x instanceof Promise => x
     case _                    => promise x
@@ -161,6 +189,11 @@ module.exports = promise = (-> new Promise it)
         ..on-error     -> res.reject it
       res
 
+  # Apply a "regular" function onto promises, yielding a promise of the result.
+  #
+  ..lift = (f, ...ps) ->
+    promise.seq (ps.map promise.wrap) .then (xs) -> f ...xs
+
   # Take an object and a predicate and return another object with all the
   # function-valued members of the original one `fwrap`-ped, if their names
   # satisfy the predicate. The predicate is either a function or a regex.
@@ -176,12 +209,6 @@ module.exports = promise = (-> new Promise it)
     ( Object.create o ) <<<
       {[k, promise.fwrap v] for k, v of o
           when typeof! v is \Function and cond k}
-
-
-  ..complete-with = (fun) ->
-    p = promise!
-    fun -> p.complete it
-    p
 
   # Promise that completes after `ms` milliseconds.
   #
