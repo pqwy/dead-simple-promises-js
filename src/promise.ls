@@ -1,4 +1,3 @@
-
 # A Promise represents an on-going background computation.
 #
 # It's a state-machine that starts in its "pending" state and can move from
@@ -142,6 +141,14 @@ class Promise
 # Main export is a factory.
 #
 module.exports = promise = (-> new Promise it)
+
+  # The common idiom of creating a promise, firing up a function to
+  # complete/reject it and returning the promise.
+  #
+  ..create = (initfun) ->
+    p = promise!
+    initfun (-> p.complete it), (-> p.reject it)
+    p
 
   ..is = -> it instanceof Promise
 
