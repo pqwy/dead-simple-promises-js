@@ -178,6 +178,22 @@ describe \promise, ->
       .then     -> done!
       .on-error -> done exn it
 
+    eet "has creation-bracket ( + )", (done) ->
+      ( promise.create (ok, nok) ->
+          set-immediate -> ok \ok )
+        .then ->
+          case it is \ok => done!
+          case _         => done it
+        .on-error -> done it
+
+    eet "has creation-bracket ( + )", (done) ->
+      ( promise.create (ok, nok) ->
+          set-immediate -> nok \nok )
+        .then -> done it
+        .on-error ->
+          case it is \nok => done!
+          case _          => done it
+
     eet "lifts functions", (done) ->
       promise.lift (+), 1, promise 2
       .then ->
