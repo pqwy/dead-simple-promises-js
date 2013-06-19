@@ -1,17 +1,17 @@
 
 # Dead-Simple Promises, js #
 
-Yet **another** future/promise variant for Javascript.
+Yet **another** future/promise implementation for Javascript.
 
 ![PROMISE!](https://raw.github.com/pqwy/dead-simple-promises-js/memorabilia/brofist.jpg)
 
-This one's distinction is very simple semantics, supported by some equational
-laws, and a pretty fast implementation. The goal is to have promises that can
-wrap every single async call in an io-heavy node application and still survive
-the speed hit, together with being relatively no-brainer to use.
+The distinction of this one is very simple semantics, supported by some
+equational laws, and a pretty fast implementation. The goal is to have promises
+that can wrap every single async call in an IO-heavy node application and still
+survive the speed hit, together with being relatively no-brainer to use.
 
 Currently, the hit is around 40% for pure in-process workloads and much lower
-with intermittent callouts. See `slake bench`.
+with intermittent syscalls. See `slake bench`.
 
 On the other hand, it is **not** compatible with
 [Promises/A+](http://promises-aplus.github.io/promises-spec/). Continuations are
