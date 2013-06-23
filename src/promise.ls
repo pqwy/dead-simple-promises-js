@@ -105,6 +105,24 @@ class Promise
     @on-error !(err) -> p.reject err
     p
 
+  # Much like #then, but for failure:
+  #
+  # ( p.else _ ) == p
+  #  - if p completes with success
+  #
+  # ( p.else f ) == ( promise(err).then f )
+  #  - if p fails with err
+  #
+  else: (fn) ->
+    p = new Promise
+    @on-completed !(result) -> p.complete result
+    @on-error !(err) ->
+      new Promise err .then fn
+        .then     -> p.complete it
+        .on-error -> p.reject it
+    p
+
+
   ## various goodies ##
 
   # Combine a promise with a chain of further functions.

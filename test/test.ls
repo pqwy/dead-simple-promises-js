@@ -41,87 +41,141 @@ describe \promise, ->
 
   describe \composition, ->
 
-    eet 'should respect then as map', (done) ->
-      promise "foo"
-        .then (+ "bar")
-        .then ->
-          case it is "foobar" => done!
-          case _              => done exn it
+    describe \then, ->
 
-    eet 'should respect then as >>=', (done) ->
-      promise "foo"
-        .then -> promise it + "bar"
-        .then ->
-          case it is "foobar" => done!
-          case _              => done exn it
-
-    eet 'should chain failure ( left )', (done) ->
-      p  = promise!
-      p2 = p.then -> "ok"
-      p2.on-error     !-> done!
-      p2.on-completed !-> done exn "promise completed"
-      p.reject \bzz
-
-    eet 'should chain failure ( right )', (done) ->
-      p = promise "foo"
+      eet 'as map', (done) ->
+        promise "foo"
+          .then (+ "bar")
           .then ->
-            p2 = promise!
-            process.next-tick -> p2.reject \nope
-            p2
-      p.on-error     !-> done!
-      p.on-completed !-> done exn "promise completed"
+            case it is "foobar" => done!
+            case _              => done exn it
 
-    eet 'should #thread', (done) ->
-      promise "foo" .thread do
-        * (+ "bar")
-        * (+ "baz")
-      .then (x) ->
-        case x is "foobarbaz" => done!
-        case _                => done exn x
-      .on-error done
+      eet 'as >>=', (done) ->
+        promise "foo"
+          .then -> promise it + "bar"
+          .then ->
+            case it is "foobar" => done!
+            case _              => done exn it
 
-    eet 'should #thread failure', (done) ->
-      promise "foo" .thread do
-        * (+ "bar")
-        * -> p = promise! ; (process.next-tick -> p.reject \nope) ; p
-        * (+ "baz")
-      .then (x) -> done exn x
-      .on-error (err) ->
-        case err is \nope => done!
-        case _            => done exn err
+      eet 'chain failure ( left )', (done) ->
+        p  = promise!
+        p2 = p.then -> "ok"
+        p2.on-error     !-> done!
+        p2.on-completed !-> done exn "promise completed"
+        p.reject \bzz
+
+      eet 'chain failure ( right )', (done) ->
+        p = promise "foo" .then ->
+          p2 = promise!
+          process.next-tick -> p2.reject \nope
+          p2
+        p.on-error     !-> done!
+        p.on-completed !-> done exn "promise completed"
+
+    describe \else, ->
+
+      eet 'bypasses on success', (done) ->
+        p = promise!
+        p
+          .else -> done exn "else followed after success"
+          .then ->
+            case it is \xx => done!
+            case _         => done exn it
+        p.complete \xx
+
+      eet 'fires on failure', (done) ->
+        ( p = promise! )
+          .then     -> done exn "first then"
+          .else     -> done!
+          .on-error -> done exn "error propagated"
+        p.reject \derp
+
+      eet 'acts as map', (done) ->
+        ( p = promise! )
+          .else -> \foo
+          .then ->
+            case it is \foo => done!
+            case _          => done exn it
+          .on-error -> done exn it
+        p.reject \derp
+
+      eet 'acts as >>= over errors ( + )', (done) ->
+        ( p = promise! )
+          .else -> promise \foo
+          .then ->
+            case it is \foo => done!
+            case _          => done exn it
+          .on-error -> done exn it
+        p.reject \derp
+
+      eet 'acts as >>= over errors ( - )', (done) ->
+        [ p1, p2 ] = [ promise!, promise! ]
+        (p1.else -> p2)
+          .then -> done "we came through?"
+          .on-error ->
+            case it is \b => done!
+            case _        => done exn it
+        p1.reject \a
+        p2.reject \b
+
+
+    describe 'thread', ->
+
+      eet '( + )', (done) ->
+        promise "foo" .thread do
+          * (+ "bar")
+          * (+ "baz")
+        .then (x) ->
+          case x is "foobarbaz" => done!
+          case _                => done exn x
+        .on-error done
+
+      eet '( - )', (done) ->
+        promise "foo" .thread do
+          * (+ "bar")
+          * -> p = promise! ; (process.next-tick -> p.reject \nope) ; p
+          * (+ "baz")
+        .then (x) -> done exn x
+        .on-error (err) ->
+          case err is \nope => done!
+          case _            => done exn err
 
 
   describe 'instance goodies:', ->
 
-    eet 'can accept callbacks ( + )', (done) ->
-      p = promise!
-      p.cb (err, res) ->
-        case err? => done exn err
-        case res? => done!
-      p.complete \win
+    describe 'accepts callbacks', ->
 
-    eet 'can accept callbacks ( - )', (done) ->
-      p = promise!
-      p.cb (err, res) ->
-        case err? => done!
-        case res? => done exn res
-      p.reject \win
+      eet '( + )', (done) ->
+        p = promise!
+        p.cb (err, res) ->
+          case err? => done exn err
+          case res? => done!
+        p.complete \win
 
-    eet 'can timeout ( + )', (done) ->
-      p = promise!
-      p.timeout 5
-      .then     -> done!
-      .on-error -> done exn it
-      set-timeout (-> p.complete \bzzz), 1
+      eet '( - )', (done) ->
+        p = promise!
+        p.cb (err, res) ->
+          case err? => done!
+          case res? => done exn res
+        p.reject \win
 
-    eet 'can timeout ( - )', (done) ->
-      p = promise!
-      p.timeout 1
-      .then     -> done exn it
-      .on-error ->
-        case it is \timeout => done!
-        case _              => done exn it
-      set-timeout (-> p.complete \bzzz), 5
+    describe 'timeouts', ->
+
+      eet '( + )', (done) ->
+        p = promise!
+        p.timeout 5
+        .then     -> done!
+        .on-error -> done exn it
+        set-timeout (-> p.complete \bzzz), 1
+
+      eet '( - )', (done) ->
+        p = promise!
+        p.timeout 1
+        .then     -> done exn it
+        .on-error ->
+          case it is \timeout => done!
+          case _              => done exn it
+        set-timeout (-> p.complete \bzzz), 5
 
     eet 'can be a little slow, if need be', (done) ->
       tick = null
@@ -130,24 +184,44 @@ describe \promise, ->
         case _        => done!
       tick = \tock
 
-    eet 'can act like its silly little sister ( + )', (done) ->
-      tick = null
-      promise \all-the-things .to-aplus!.then ->
-        case not tick => done exn "Too fast."
-        case _        => done!
-      tick = \tock
+    describe 'can act like its silly little sister ( + )', ->
 
-    eet 'can act like its silly little sister ( - )', (done) ->
-      tick = null
-      p = promise!
-      p.to-aplus!then null, ->
-        case not tick => done exn "Too fast."
-        case _        => done!
-      p.reject \because
-      tick = \tock
+      eet '( + )', (done) ->
+        tick = null
+        promise \all-the-things .to-aplus!.then ->
+          case not tick => done exn "Too fast."
+          case _        => done!
+        tick = \tock
+
+      eet '( - )', (done) ->
+        tick = null
+        p = promise!
+        p.to-aplus!then null, ->
+          case not tick => done exn "Too fast."
+          case _        => done!
+        p.reject \because
+        tick = \tock
 
 
   describe 'module goodies', ->
+
+    describe 'creation bracket', ->
+
+      eet "( + )", (done) ->
+        ( promise.create (ok, nok) ->
+            set-immediate -> ok \ok )
+          .then ->
+            case it is \ok => done!
+            case _         => done it
+          .on-error -> done it
+
+      eet "( - )", (done) ->
+        ( promise.create (ok, nok) ->
+            set-immediate -> nok \nok )
+          .then -> done it
+          .on-error ->
+            case it is \nok => done!
+            case _          => done it
 
     fs-tree =
       rm-tree : (path) ->
@@ -177,22 +251,6 @@ describe \promise, ->
       fs-tree.rm-tree temp
       .then     -> done!
       .on-error -> done exn it
-
-    eet "has creation-bracket ( + )", (done) ->
-      ( promise.create (ok, nok) ->
-          set-immediate -> ok \ok )
-        .then ->
-          case it is \ok => done!
-          case _         => done it
-        .on-error -> done it
-
-    eet "has creation-bracket ( + )", (done) ->
-      ( promise.create (ok, nok) ->
-          set-immediate -> nok \nok )
-        .then -> done it
-        .on-error ->
-          case it is \nok => done!
-          case _          => done it
 
     eet "lifts functions", (done) ->
       promise.lift (+), 1, promise 2
