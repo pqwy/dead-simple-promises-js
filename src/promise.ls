@@ -218,6 +218,12 @@ module.exports = promise = (-> new Promise it)
         ..on-error     -> res.reject it
       res
 
+  # Chain a sequence of promises.
+  #
+  # ( thread [p, f1, f2] ) == ( p.then f1 .then f2 ) == ( p.then -> f1!then f2 )
+  #
+  ..thread = (x, ...fs) -> promise.wrap x .thread ...fs
+
   # Apply a "regular" function onto promises, yielding a promise of the result.
   #
   ..lift = (f, ...ps) ->

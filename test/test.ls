@@ -223,6 +223,29 @@ describe \promise, ->
             case it is \nok => done!
             case _          => done it
 
+    describe 'threading', ->
+
+      eet '( + )', (done) ->
+        promise.thread do
+          * "foo"
+          * (+ "bar")
+          * (+ "baz")
+        .then (x) ->
+          case x is "foobarbaz" => done!
+          case _                => done exn x
+        .on-error done
+
+      eet '( - )', (done) ->
+        promise.thread do
+          * "foo"
+          * (+ "bar")
+          * -> p = promise! ; (process.next-tick -> p.reject \nope) ; p
+          * (+ "baz")
+        .then (x) -> done exn x
+        .on-error (err) ->
+          case err is \nope => done!
+          case _            => done exn err
+
     fs-tree =
       rm-tree : (path) ->
         stat <- fsp.lstat path .then
