@@ -160,6 +160,11 @@ class Promise
 #
 module.exports = promise = (-> new Promise it)
 
+  # Create a promise that errors out.
+  #
+  ..error = (err) ->
+    promise! ..reject err
+
   # The common idiom of creating a promise, firing up a function to
   # complete/reject it and returning the promise.
   #
@@ -168,6 +173,8 @@ module.exports = promise = (-> new Promise it)
     initfun (-> p.complete it), (-> p.reject it)
     p
 
+  # Type predicate.
+  #
   ..is = -> it instanceof Promise
 
   # Convert a function that takes a node-style callback as the last argument
