@@ -122,6 +122,9 @@ class Promise
         .on-error -> p.reject it
     p
 
+  to-string: -> "<Promise [#{@_done or \pending}]>"
+
+  inspect: -> @to-string!
 
   ## various goodies ##
 
