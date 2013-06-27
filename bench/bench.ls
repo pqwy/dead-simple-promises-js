@@ -7,7 +7,7 @@ fsp = promise.owrap fs
 pmap = !(fn, arr, next) ->
   case p.empty arr => next null, []
   case _ =>
-    n = p.length arr ; resn = [] ; dead = false
+    n = arr.length ; resn = [] ; dead = false
     for e, i1 in arr then do (i = i1) ->
       fn e, !(err, res) ->
         case err and dead =>
