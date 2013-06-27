@@ -145,7 +145,7 @@ class Promise
   #
   to-aplus: ->
     then: (succ = id, fail = id) ~>
-      le-next-tick ~> @then succ .on-error fail
+      le-next-tick ~> @then succ ..on-error fail
 
   # Strictly asynchronous `then`, à la A+.
   #
