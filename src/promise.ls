@@ -47,10 +47,10 @@ class Promise
   # Hook a listener. It is invoked only once, if the state targeted is
   # eventually echieved, or zero times otherwise.
   #
-  on-completed: (cb) -> @_on-event \succ, @[]_onsucc, cb
-  on-error    : (cb) -> @_on-event \err , @[]_onerr , cb
+  on-completed : (cb) -> @_on-event \succ, @[]_onsucc, cb
+  on-error     : (cb) -> @_on-event \err , @[]_onerr , cb
 
-  _on-event: (tag, queue, cb) ->
+  _on-event : (tag, queue, cb) ->
     switch @_done
       case void => queue.push cb
       case tag  => cb @_x
@@ -58,10 +58,10 @@ class Promise
 
   # Make the transition, if the promise is pending.
   #
-  complete: !(value) -> @_finalize \succ, @_onsucc, value
-  reject  : !(error) -> @_finalize \err , @_onerr , error
+  complete : !(value) -> @_finalize \succ, @_onsucc, value
+  reject   : !(error) -> @_finalize \err , @_onerr , error
 
-  _finalize: !(tag, queue, value) ->
+  _finalize : !(tag, queue, value) ->
     unless @_done
       @_done = tag
       @_x    = value
@@ -93,7 +93,7 @@ class Promise
   # This is a conflation of Haskell's `fmap` and `>>=` or Scala's `map` and
   # `flatMatmap`, specialized for promises.
   #
-  then: (fn) ->
+  then : (fn) ->
     p = new Promise
     @on-completed !(result) ->
       try
@@ -113,7 +113,7 @@ class Promise
   # ( p.else f ) == ( promise(err).then f )
   #  - if p fails with err
   #
-  else: (fn) ->
+  else : (fn) ->
     p = new Promise
     @on-completed !(result) -> p.complete result
     @on-error !(err) ->
@@ -122,9 +122,8 @@ class Promise
         .on-error -> p.reject it
     p
 
-  to-string: -> "<Promise [#{@_done or \pending}]>"
-
-  inspect: -> @to-string!
+  to-string : -> "<Promise [#{@_done or \pending}]>"
+  inspect   : -> @to-string!
 
   ## various goodies ##
 
@@ -132,29 +131,29 @@ class Promise
   #
   # ( p.thread [f1, f2] ) == ( p.then f1 .then f2 ) == ( p.then -> f1!then f2 )
   #
-  thread: (...fns) -> fns.reduce ((p, fn) -> p.then fn), @
+  thread : (...fns) -> fns.reduce ((p, fn) -> p.then fn), @
 
   # Add a node-style callback -- wait for either event.
   #
-  cb: !(cb) ->
+  cb : !(cb) ->
     @on-completed !(result) -> cb null, result
     @on-error     !(err)    -> cb err
 
   # Create an object whose `then` is Promises/A+ compatible.
   # (Almost. Giving defined-but-non-function callbacks will error out.)
   #
-  to-aplus: ->
-    then: (succ = id, fail = id) ~>
+  to-aplus : ->
+    then : (succ = id, fail = id) ~>
       le-next-tick ~> @then succ ..on-error fail
 
   # Strictly asynchronous `then`, à la A+.
   #
-  then-later: (fn) -> le-next-tick ~> @then fn
+  then-later : (fn) -> le-next-tick ~> @then fn
 
   # Make a promise that fails after the given number of milliseconds, or
   # completes with the result of the original promise.
   #
-  timeout: (ms) ->
+  timeout : (ms) ->
     p = @then ((x) -> x)
     set-timeout (-> p.reject \timeout), ms
     p

@@ -1,6 +1,6 @@
 {
   "name": "dead-simple-promises",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "promises with very simple semantics and high performance",
   "main": "lib/promise.js",
   "scripts": {
