@@ -47,26 +47,42 @@ class Promise
   # Hook a listener. It is invoked only once, if the state targeted is
   # eventually echieved, or zero times otherwise.
   #
-  on-completed : (cb) -> @_on-event \succ, @[]_onsucc, cb
-  on-error     : (cb) -> @_on-event \err , @[]_onerr , cb
-
-  _on-event : (tag, queue, cb) ->
+  on-completed : (cb) ->
     switch @_done
-      case void => queue.push cb
-      case tag  => cb @_x
+      case void  => @[]_onsucc.push cb
+      case \succ => cb @_x
+    @
+
+  on-error : (cb) ->
+    switch @_done
+      case void => @[]_onerr.push cb
+      case \err => cb @_x ; @_handled = true
     @
 
   # Make the transition, if the promise is pending.
   #
-  complete : !(value) -> @_finalize \succ, @_onsucc, value
-  reject   : !(error) -> @_finalize \err , @_onerr , error
-
-  _finalize : !(tag, queue, value) ->
+  complete : !(value) ->
     unless @_done
-      @_done = tag
+      @_done = \succ
       @_x    = value
-      for cb in queue or [] then cb value
+      for cb in @_onsucc or [] then cb value
       @_onsucc = @_onerr = null
+
+  reject : !(error) ->
+    unless @_done
+      @_done = \err
+      @_x    = error
+      for cb in @_onerr or [] then cb error
+      else if @@catch_them_all
+        exn = new Error "unhandled rejection: #{error}"
+          ..reason = error
+        le-next-tick ~>
+          unless @_handled then throw exn
+      @_onsucc = @_onerr = null
+
+  # Raise an error if there were no error handlers.
+  #
+  @@catch_them_all = true
 
   # Combine a function of signature `(a) -> b` or `(a) -> Promise b` with a
   # promise of type `Promise a`, forming a new promise of type `Promise b`.
@@ -161,6 +177,12 @@ class Promise
 # Main export is a factory.
 #
 module.exports = promise = (-> new Promise it)
+
+  # Control whether all errors must have handlers, or can be silently ignored.
+  #
+  # Defaults to true.
+  #
+  ..strict-errors = -> Promise.catch_them_all = it
 
   # Create a promise that errors out.
   #
@@ -281,7 +303,6 @@ module.exports = promise = (-> new Promise it)
     p = promise!
     ap.then (-> p.complete it), (-> p.reject it)
     p
-
 
 id = (x) -> x
 
