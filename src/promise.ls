@@ -159,8 +159,8 @@ class Promise
   # (Almost. Giving defined-but-non-function callbacks will error out.)
   #
   to-aplus : ->
-    then : (succ = id, fail = id) ~>
-      le-next-tick ~> @then succ ..on-error fail
+    then : (succ = id, fail = id) !~>
+      le-next-tick !~> @then succ .on-error fail
 
   # Strictly asynchronous `then`, à la A+.
   #
@@ -186,8 +186,8 @@ module.exports = promise = (-> new Promise it)
 
   # Create a promise that errors out.
   #
-  ..error = (err) ->
-    promise! ..reject err
+  ..error = (err) -> promise!
+    ..reject err
 
   # The common idiom of creating a promise, firing up a function to
   # complete/reject it and returning the promise.
