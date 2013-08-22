@@ -56,7 +56,7 @@ class Promise
   on-error : (cb) ->
     switch @_done
       case void => @[]_onerr.push cb
-      case \err => cb @_x ; @_handled = true
+      case \err => @_handled = true ; cb @_x
     @
 
   # Make the transition, if the promise is pending.
@@ -65,16 +65,16 @@ class Promise
     unless @_done
       @_done = \succ
       @_x    = value
-      for cb in @_onsucc or [] then cb value
+      for cb in @[]_onsucc then cb value
       @_onsucc = @_onerr = null
 
   reject : !(error) ->
     unless @_done
       @_done = \err
       @_x    = error
-      for cb in @_onerr or [] then cb error
+      for cb in @[]_onerr then cb error
       else if @@catch_them_all
-        exn = new Error "unhandled rejection: #{error}"
+        exn = new Error "unhandled rejection: #{err-to-string error}"
           ..reason = error
         le-next-tick ~>
           unless @_handled then throw exn
@@ -311,3 +311,6 @@ le-next-tick = do ->
   case process?.next-tick? => process.next-tick
   case _                   => (cb) -> set-timeout cb, 0
 
+err-to-string = (x) ->
+  case x.stack? => x.to-string!
+  case _        => JSON.stringify x
