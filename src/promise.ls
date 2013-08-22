@@ -218,6 +218,7 @@ module.exports = promise = (-> new Promise it)
   #
   ..wrap = (x) ->
     case x instanceof Promise => x
+    case x is void            => promise null
     case _                    => promise x
 
   # Convert an array of promises into a promise of array.

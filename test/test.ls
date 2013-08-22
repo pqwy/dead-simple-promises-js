@@ -189,7 +189,7 @@ describe \promise, ->
         case _        => done!
       tick = \tock
 
-    describe 'can act like its silly little sister ( + )', ->
+    describe 'can act like its silly little sister', ->
 
       eet '( + )', (done) ->
 
@@ -256,6 +256,23 @@ describe \promise, ->
         .on-error (err) ->
           case err is \nope => done!
           case _            => done exn err
+
+    describe 'wrapping', ->
+
+      eet 'passes promises', (done) ->
+        p1 = promise 666
+        if promise.wrap p1 is p1 then done! else done exn "promise.wrap(promise)"
+
+      eet 'wraps values', (done) ->
+        ok = false
+        promise.wrap 666 .then -> ok := true ; done!
+        process.next-tick -> done exn "promise.wrap(value)" unless ok
+
+      eet 'wraps undefined', (done) ->
+        [ ok, und ] = [ false, (->)! ]
+        promise.wrap und .then -> ok := true ; done!
+        process.next-tick -> done exn "promise.wrap(undefined)" unless ok
+
 
     fs-tree =
       rm-tree : (path) ->
