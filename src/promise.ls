@@ -249,11 +249,11 @@ module.exports = promise = (-> new Promise it)
         ..on-error     -> res.reject it
       res
 
-  # Chain a sequence of promises.
+  # Chain a sequence of delayed promises.
   #
-  # ( thread [p, f1, f2] ) == ( p.then f1 .then f2 ) == ( p.then -> f1!then f2 )
+  # ( thread [f0, f1, f2] ) == ( f0!then f1 .then f2 ) == ( f0!then -> f1!then f2 )
   #
-  ..thread = (x, ...fs) -> promise.wrap x .thread ...fs
+  ..thread = (f0, ...fs) -> promise.wrap f0! .thread ...fs
 
   # Apply a "regular" function onto promises, yielding a promise of the result.
   #

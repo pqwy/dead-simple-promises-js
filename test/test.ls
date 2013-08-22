@@ -237,7 +237,7 @@ describe \promise, ->
       eet '( + )', (done) ->
 
         promise.thread do
-          * "foo"
+          * -> "foo"
           * (+ "bar")
           * (+ "baz")
         .then (x) ->
@@ -248,7 +248,7 @@ describe \promise, ->
       eet '( - )', (done) ->
 
         promise.thread do
-          * "foo"
+          * -> "foo"
           * (+ "bar")
           * -> p = promise! ; next-tick(-> p.reject \nope) ; p
           * (+ "baz")
